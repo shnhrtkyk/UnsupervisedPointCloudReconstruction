@@ -14,7 +14,8 @@ import h5py
 from glob import glob
 import numpy as np
 import torch.utils.data as data
-
+import glob
+import open3d
 
 def translate_pointcloud(pointcloud):
     xyz1 = np.random.uniform(low=2./3., high=3./2., size=[3])
@@ -132,3 +133,56 @@ class Dataset(data.Dataset):
 
     def __len__(self):
         return self.data.shape[0]
+
+
+class MyDataset(data.Dataset):
+    def __init__(self, root, npoints=8192, utransform=None):
+        self.npoints = npoints
+        self.root = root
+        self.pointlist = []
+        self.pointpath = root + "/point/"
+        self.point_list = files = glob.glob(self.pointpath + "/*.txt")
+        count=0
+        for file in self.point_list:
+            print(file)
+            # point cloud 取得
+            src = np.loadtxt(file)
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(src)
+            # cl, ind = pcd.remove_radius_outlier(nb_points=16, radius=0.05)
+            cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20,
+                                                        std_ratio=2.0)
+            pcd = pcd.select_down_sample(ind)
+            src = np.asarray(pcd.points)
+            normlized_xyz = np.zeros((npoints, 3))
+            self.coord_min, self.coord_max = np.amin(src, axis=0)[:3], np.amax(src, axis=0)[:3]
+            # print(self.coord_min)
+            # print(self.coord_max)
+            if(self.coord_max[0] == 0):continue
+            if(self.coord_max[1] == 0):continue
+            if(self.coord_max[2] == 0):continue
+            src[:, 0] = src[:, 0] - self.coord_min[0]
+            src[:, 1] = src[:, 1] - self.coord_min[1]
+            src[:, 2] = src[:, 2] - self.coord_min[2]
+            if(len(src) >=npoints):
+                np.random.shuffle(src)
+                normlized_xyz[:,:]=src[:npoints,:]
+            else:
+                normlized_xyz[:len(src),:]=src[:,:]
+
+            self.pointlist.append(normlized_xyz)
+            # print(normlized_xyz.shape)
+            count+=1
+            # if(count==100):break
+                
+
+        self.data_num = len(self.pointlist)
+        
+
+    def __getitem__(self, index):
+        point = self.pointlist[index]
+        point = torch.from_numpy(point)
+        return point
+
+    def __len__(self):
+        return len(self.pointlist)
