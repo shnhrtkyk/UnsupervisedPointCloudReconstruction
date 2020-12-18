@@ -15,7 +15,7 @@ from glob import glob
 import numpy as np
 import torch.utils.data as data
 import glob
-import open3d
+import open3d  as o3d
 
 def translate_pointcloud(pointcloud):
     xyz1 = np.random.uniform(low=2./3., high=3./2., size=[3])
@@ -147,6 +147,7 @@ class MyDataset(data.Dataset):
             print(file)
             # point cloud 取得
             src = np.loadtxt(file)
+
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(src)
             # cl, ind = pcd.remove_radius_outlier(nb_points=16, radius=0.05)
